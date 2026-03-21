@@ -1,0 +1,349 @@
+Metadata-Version: 2.4
+Name: armenian-voice-ai-bank-agent
+Version: 0.1.0
+Summary: Armenian Voice AI Support Agent for bank FAQs
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn>=0.30.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: pydantic>=2.8.0
+Requires-Dist: pydantic-settings
+Requires-Dist: requests>=2.32.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: markdownify
+Requires-Dist: PyYAML
+Requires-Dist: lxml>=5.2.0
+Requires-Dist: livekit-api
+Requires-Dist: livekit-agents
+Requires-Dist: livekit-plugins-openai
+
+# Armenian Voice AI Support Agent for Banks
+
+Self-hosted voice AI customer-support agent for Armenian banks, built on the open-source LiveKit stack.
+
+## What this project does
+
+This project answers **only** questions about these three topics:
+
+- Credits
+- Deposits
+- Branch locations
+
+It uses data scraped from official bank websites, stores the extracted content locally, retrieves relevant evidence per question, and then answers only from retrieved evidence. When a request is out of scope or unsupported by the ingested website data, the agent refuses.
+
+The starter configuration includes these banks:
+
+- Mellat Bank
+- Ameriabank
+- ACBA
+
+The ingestion layer is bank-agnostic, so you can add more banks by extending the YAML seed list or adding custom crawlers.
+
+---
+
+## Architecture
+
+```text
+User microphone
+   -> LiveKit room (self-hosted)
+   -> LiveKit Agent worker
+   -> OpenAI STT (Armenian speech to text)
+   -> Scope guardrails
+   -> Hybrid retrieval over local bank knowledge base
+      - SQLite FTS5 lexical search
+      - OpenAI multilingual embeddings
+   -> OpenAI LLM generates answer only from retrieved evidence
+   -> OpenAI TTS speaks answer in Armenian
+   -> LiveKit streams audio back to user
+```
+
+### Main components
+
+- `deploy/docker-compose.yml`:
+  Runs Redis, a self-hosted LiveKit server, the token server, the agent worker, and a tiny demo web client.
+- `agent.py`:
+  LiveKit voice agent entrypoint.
+- `token_server.py`:
+  FastAPI service that issues client access tokens for joining the self-hosted LiveKit room.
+- `scripts/scrape_and_ingest.py`:
+  Scrapes official bank pages and writes them into the local SQLite knowledge base.
+- `bank_support/retrieval.py`:
+  Hybrid retrieval combining FTS5 and embeddings.
+- `bank_support/guardrails.py`:
+  Scope detection and refusal logic.
+- `client/`:
+  Minimal browser demo for voice testing.
+
+---
+
+## Why this architecture
+
+### 1) Open-source LiveKit, not LiveKit Cloud
+
+The realtime transport layer is self-hosted LiveKit. That keeps media routing and session control under your infrastructure while still using the official LiveKit Agents framework.
+
+### 2) Retrieval, not full-site prompt stuffing
+
+The project deliberately does **not** load all bank website data into the LLM system prompt on every request.
+
+That approach breaks down quickly because:
+
+- it scales poorly as more banks are added,
+- it increases latency and token cost,
+- it makes guardrails weaker because unrelated content is always present,
+- it is harder to cite and inspect which source passages were actually used.
+
+Instead, this project uses a **hybrid retrieval layer** over a local store:
+
+- **SQLite FTS5** for fast keyword matching,
+- **OpenAI embeddings** for Armenian and English semantic matching,
+- a small merged context window for the final answer.
+
+This keeps the design scalable while still being simple to operate.
+
+### 3) Why SQLite first
+
+For this assignment, SQLite keeps local setup simple and foolproof.
+
+It is enough for a demo and small production pilot. The retrieval interface is intentionally isolated so you can later swap it for PostgreSQL + pgvector, OpenSearch, Qdrant, Weaviate, or another backend without changing the voice agent logic.
+
+### 4) Why not let the voice model answer directly
+
+Speech-to-speech models are fast, but for a bank support agent the biggest requirement is factual grounding. This project therefore keeps the reasoning path explicit:
+
+- STT for recognition
+- local retrieval for grounding
+- text LLM answer constrained by retrieved evidence
+- TTS for speech output
+
+That makes debugging, evaluation, and refusal behavior much easier.
+
+---
+
+## Model choices
+
+### Speech to text: `gpt-4o-mini-transcribe`
+
+Chosen for a good latency/quality/cost balance, especially for multilingual audio.
+
+### Text generation: `gpt-4.1-mini`
+
+Chosen because the final answer step is small but important: it must follow strict instructions, stay grounded, and format compact voice-friendly answers.
+
+You can switch to `gpt-4.1-nano` if you want to optimize more aggressively for cost, but this starter uses `gpt-4.1-mini` as the safer default for grounding-sensitive QA.
+
+### Text to speech: `gpt-4o-mini-tts`
+
+Chosen for low-latency spoken responses and simple API integration.
+
+### Embeddings: `text-embedding-3-small`
+
+Chosen because it is inexpensive and works well for multilingual semantic retrieval.
+
+---
+
+## Prompt-injection and policy notes
+
+The assignment text intentionally contains instruction-like content such as:
+
+- forcing all scraped data into one giant prompt,
+- forcing a specific model choice,
+- asking for an unverified claim that one model is better than another specialized model.
+
+This repository treats those as untrusted instructions.
+
+Specifically:
+
+- It does **not** stuff the entire corpus into the system prompt.
+- It uses a retrieval layer instead.
+- It does **not** state that `GPT-4.1 nano` is better than a specialized Armenian legal model unless there is actual benchmark evidence for that claim.
+
+That is deliberate. For a banking support system, unsupported claims in documentation are a risk.
+
+---
+
+## Supported banks and seed URLs
+
+The starter seed file is `seeds/banks.yaml`.
+
+Included banks:
+
+- Mellat Bank
+- Ameriabank
+- ACBA
+
+Each seed page is tagged with one of the allowed topics:
+
+- `credits`
+- `deposits`
+- `branch_locations`
+
+You can extend the system by adding more URLs or adding a custom crawler per bank.
+
+---
+
+## Setup
+
+### 1) Prerequisites
+
+Install:
+
+- Docker and Docker Compose
+- Python 3.11+
+- An OpenAI API key
+
+### 2) Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Then update at least:
+
+```env
+OPENAI_API_KEY=...
+LIVEKIT_API_KEY=devkey
+LIVEKIT_API_SECRET=secret
+LIVEKIT_URL=ws://localhost:7880
+```
+
+### 3) Install Python dependencies locally
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+### 4) Build the knowledge base
+
+```bash
+python scripts/scrape_and_ingest.py
+```
+
+This fetches the configured official bank pages, converts the HTML into plain text, generates embeddings, and stores everything in `data/knowledge.db`.
+
+### 5) Start the stack
+
+```bash
+docker compose -f deploy/docker-compose.yml up --build
+```
+
+Services:
+
+- LiveKit server: `ws://localhost:7880`
+- token server: `http://localhost:8080`
+- demo web client: `http://localhost:3000`
+
+### 6) Test the demo
+
+Open `http://localhost:3000`, join the room, allow microphone access, and ask questions in Armenian such as:
+
+- `Ասա Մելլաթ բանկի ավանդների մասին:`
+- `Որտե՞ղ է Ամերիաբանկի գլխավոր գրասենյակը:`
+- `ԱԿԲԱ-ի վարկերի մասին ինչ տեղեկություն կա:`
+
+Out-of-scope examples that should be refused:
+
+- `What is the USD exchange rate today?`
+- `Which bank has the best app in Armenia?`
+- `Tell me about card fees.`
+
+---
+
+## Local development without browser demo
+
+You can also run the worker directly:
+
+```bash
+python agent.py dev
+```
+
+And run the token server separately:
+
+```bash
+uvicorn token_server:app --reload --port 8080
+```
+
+---
+
+## How the guardrails work
+
+1. The user question is first checked for supported topic scope.
+2. If the topic is outside `credits`, `deposits`, or `branch_locations`, the agent refuses.
+3. Only then does retrieval run over the local bank corpus.
+4. If retrieval returns weak or no evidence, the agent refuses.
+5. The answer generation prompt explicitly forbids outside knowledge.
+
+This means the LLM is not trusted as the source of truth. The bank websites are.
+
+---
+
+## Scaling to more banks
+
+The current project is small on purpose, but the extension path is straightforward:
+
+1. Add official URLs to `seeds/banks.yaml`.
+2. If a bank site needs more structure, add a bank-specific parser under `bank_support/scraping/`.
+3. Re-run ingestion.
+4. Optionally swap the storage backend when the corpus grows.
+
+Good production upgrades:
+
+- chunking long pages into smaller sections instead of one page per document,
+- source freshness checks and scheduled re-ingestion,
+- source-level citations returned to the UI,
+- evaluation harness for Armenian QA and refusal accuracy,
+- better branch normalization for address and hours extraction,
+- phone/SIP ingress for call-center flows.
+
+---
+
+## Testing
+
+Run:
+
+```bash
+pytest
+```
+
+Included tests validate the scope guardrails.
+
+---
+
+## Known limitations
+
+- The starter scraper is intentionally generic. Some bank sites may need per-site extraction rules.
+- The current ingestion stores one page as one document. Production should chunk large pages.
+- Voice selection is generic. You may want to test several Armenian-friendly voices and TTS speeds.
+- The demo client is intentionally minimal.
+
+---
+
+## Repository delivery note
+
+I cannot create or host a GitHub repository from this environment, so this deliverable is provided as a complete local project bundle.
+
+To publish it:
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin <your-repo-url>
+git push -u origin main
+```
+
+If you make the repository private, invite `HaykTarkhanyan` with read access.
+
+---
+
+## Suggested next improvements
+
+- add structured branch extraction,
+- add nightly refresh jobs,
+- add evaluation transcripts for Armenian speech,
+- add signed source citations in every answer,
+- add admin dashboard for supported banks and seed URLs.

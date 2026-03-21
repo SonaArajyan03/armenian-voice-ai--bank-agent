@@ -1,0 +1,37 @@
+pages:
+  - bank: evoca
+    topic: deposits
+    url: https://www.evoca.am/hy/retail/deposits
+    language: hy
+  - bank: evoca
+    topic: credits
+    url: https://www.evoca.am/hy/
+    language: hy
+  - bank: evoca
+    topic: branch_locations
+    url: https://www.evoca.am/hy/branches-and-atms/
+    language: hy
+  - bank: araratbank
+    topic: deposits
+    url: https://www.araratbank.am/hy/
+    language: hy
+  - bank: araratbank
+    topic: credits
+    url: https://www.araratbank.am/en/consumer-loans/42/
+    language: en
+  - bank: araratbank
+    topic: branch_locations
+    url: https://www.araratbank.am/hy/
+    language: hy
+  - bank: ameriabank
+    topic: branch_locations
+    url: https://ameriabank.am/
+    language: hy
+  - bank: ameriabank
+    topic: credits
+    url: https://ameriabank.am/personal/loans
+    language: hy
+  - bank: ameriabank
+    topic: deposits
+    url: https://ameriabank.am/personal/accounts
+    language: hy

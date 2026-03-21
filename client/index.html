@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="hy">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Armenian Bank Voice Agent</title>
+    <style>
+      body { font-family: sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+      button, input { padding: 10px 14px; font-size: 16px; }
+      .row { display: flex; gap: 12px; margin-bottom: 16px; }
+      #log { white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-height: 240px; }
+    </style>
+  </head>
+  <body>
+    <h1>Հայկական բանկային voice agent</h1>
+    <p>Այս դեմոն աշխատում է self-hosted LiveKit server-ի վրա։</p>
+    <div class="row">
+      <input id="identity" value="demo-user" />
+      <button id="join">Join</button>
+      <button id="leave">Leave</button>
+    </div>
+    <div id="log">Disconnected.</div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+version: '3.9'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    depends_on:
+      - redis
+
+  token-server:
+    build:
+      context: ..
+      dockerfile: deploy/python.Dockerfile
+    command: uvicorn token_server:app --host 0.0.0.0 --port 8080
+    env_file:
+      - ../.env
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+    volumes:
+      - ../data:/app/data
+    ports:
+      - "8080:8080"
+
+  agent-worker:
+    build:
+      context: ..
+      dockerfile: deploy/python.Dockerfile
+    command: python agent.py dev
+    env_file:
+      - ../.env
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      - livekit
+
+  client:
+    image: nginx:alpine
+    volumes:
+      - ../client:/usr/share/nginx/html:ro
+    ports:
+      - "3000:80"
