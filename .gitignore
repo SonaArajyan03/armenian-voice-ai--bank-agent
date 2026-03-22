@@ -1,5 +1,8 @@
 .env
 .venv/
 __pycache__/
-data/knowledge.db
 *.pyc
+.DS_Store
+*.egg-info/
+.pytest_cache/
+data/knowledge.db
