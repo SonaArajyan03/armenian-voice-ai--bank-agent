@@ -179,7 +179,7 @@ Each seed page is tagged with one of the allowed topics:
 - `deposits`
 - `branch_locations`
 
-You can extend the system by adding more URLs or adding a custom crawler per bank.
+ Can extend the system by adding more URLs or adding a custom crawler per bank.
 
 ---
 
@@ -240,9 +240,9 @@ Services:
 
 Open `http://localhost:3000`, join the room, allow microphone access, and ask questions in Armenian such as:
 
-- `Ասա Մելլաթ բանկի ավանդների մասին:`
+- `Ասա Արարատ բանկի ավանդների մասին:`
 - `Որտե՞ղ է Ամերիաբանկի գլխավոր գրասենյակը:`
-- `ԱԿԲԱ-ի վարկերի մասին ինչ տեղեկություն կա:`
+- `Էվոկա-ի վարկերի մասին ինչ տեղեկություն կա:`
 
 Out-of-scope examples that should be refused:
 
@@ -320,23 +320,6 @@ Included tests validate the scope guardrails.
 - The demo client is intentionally minimal.
 
 ---
-
-## Repository delivery note
-
-I cannot create or host a GitHub repository from this environment, so this deliverable is provided as a complete local project bundle.
-
-To publish it:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin <your-repo-url>
-git push -u origin main
-```
-
-If you make the repository private, invite `HaykTarkhanyan` with read access.
 
 ---
 
